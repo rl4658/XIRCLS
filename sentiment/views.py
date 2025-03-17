@@ -1,11 +1,6 @@
-from django.shortcuts import render
-
-# Create your views here.
 # sentiment/views.py
 from django.shortcuts import render
 
-def voice_recognition_view(request):
-    """
-    Render the voice recognition page that uses the Web Speech API.
-    """
-    return render(request, 'voice.html')
+def voice_vosk_view(request):
+    """Render the voice recording page that uses Vosk API on the server."""
+    return render(request, 'voice_vosk.html')

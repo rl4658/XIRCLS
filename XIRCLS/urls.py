@@ -1,27 +1,15 @@
-"""
-URL configuration for XIRCLS project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/5.1/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
 # XIRCLS/urls.py
 from django.contrib import admin
 from django.urls import path
 from sentiment.api_views import SentimentAnalysisAPIView
-from sentiment.views import voice_recognition_view  # Import the new voice recognition view
+from sentiment.voice_api_views import VoiceVoskAPIView
+from sentiment.views import voice_vosk_view  # New view to render the recording page
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/sentiment/', SentimentAnalysisAPIView.as_view(), name='api_sentiment'),
-    path('voice/', voice_recognition_view, name='voice_recognition'),
+    # New API endpoint for Vosk-based transcription
+    path('api/voice-vosk/', VoiceVoskAPIView.as_view(), name='api_voice_vosk'),
+    # New page for recording voice and showing transcription
+    path('voice/', voice_vosk_view, name='voice_vosk'),
 ]

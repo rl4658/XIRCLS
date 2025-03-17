@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Voice Recognition with Vosk</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    button, select { padding: 10px 20px; margin: 5px; }
+    #transcript {
+      margin-top: 20px;
+      font-size: 1.2em;
+      border: 1px solid #ccc;
+      padding: 10px;
+      min-height: 50px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Voice Recognition with Vosk</h1>
+  
+  <label for="micSelect">Select Microphone:</label>
+  <select id="micSelect"></select>
+  <br>
+  
+  <button id="start">Start Recording</button>
+  <button id="stop" disabled>Stop Recording</button>
+  
+  <div id="transcript">Your transcribed text will appear here after processing...</div>
+  
+  <script>
+    let mediaRecorder;
+    let audioChunks = [];
+    let selectedDeviceId = null;
+    
+    const micSelect = document.getElementById('micSelect');
+    const startButton = document.getElementById('start');
+    const stopButton = document.getElementById('stop');
+    const transcriptElem = document.getElementById('transcript');
+    
+    // Populate the microphone dropdown
+    navigator.mediaDevices.enumerateDevices().then(devices => {
+      micSelect.innerHTML = '';
+      devices.forEach(device => {
+        if (device.kind === 'audioinput') {
+          const option = document.createElement('option');
+          option.value = device.deviceId;
+          option.text = device.label || 'Microphone ' + (micSelect.length + 1);
+          micSelect.appendChild(option);
+        }
+      });
+      if (micSelect.options.length > 0) {
+        selectedDeviceId = micSelect.options[0].value;
+      }
+    }).catch(err => {
+      console.error("Error enumerating devices:", err);
+    });
+    
+    micSelect.addEventListener('change', () => {
+      selectedDeviceId = micSelect.value;
+    });
+    
+    function startRecording() {
+      transcriptElem.textContent = ""; // Clear previous transcript
+      audioChunks = [];
+      const constraints = {
+        audio: {
+          deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined,
+          sampleRate: 16000, // Desired sample rate for Vosk
+          channelCount: 1   // Mono
+        }
+      };
+      navigator.mediaDevices.getUserMedia(constraints)
+        .then(stream => {
+          mediaRecorder = new MediaRecorder(stream);
+          mediaRecorder.ondataavailable = event => {
+            if (event.data.size > 0) {
+              audioChunks.push(event.data);
+            }
+          };
+          mediaRecorder.onstop = () => {
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            uploadAudio(audioBlob);
+          };
+          mediaRecorder.start();
+        })
+        .catch(error => {
+          console.error('Error accessing microphone:', error);
+        });
+    }
+    
+    function stopRecording() {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+      }
+    }
+    
+    function uploadAudio(blob) {
+      const formData = new FormData();
+      formData.append('audio', blob, 'recording.webm');
+      
+      fetch('/api/voice-vosk/', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        transcriptElem.textContent = data.recognized_text || 'No transcription available.';
+      })
+      .catch(error => {
+        console.error('Error uploading audio:', error);
+        transcriptElem.textContent = 'Error during transcription.';
+      });
+    }
+    
+    startButton.addEventListener('click', () => {
+      startButton.disabled = true;
+      stopButton.disabled = false;
+      startRecording();
+    });
+    
+    stopButton.addEventListener('click', () => {
+      stopRecording();
+      startButton.disabled = false;
+      stopButton.disabled = true;
+    });
+  </script>
+</body>
+</html>
