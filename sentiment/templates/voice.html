@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Voice Recognition</title>
+    <style>
+      body { font-family: Arial, sans-serif; padding: 20px; }
+      button { padding: 10px 20px; margin: 5px; }
+      #transcript { margin-top: 20px; font-size: 1.2em; }
+    </style>
+</head>
+<body>
+    <h1>Voice Recognition</h1>
+    <button id="start">Start Recording</button>
+    <button id="stop" disabled>Stop Recording</button>
+    <p id="transcript">Your transcribed text will appear here...</p>
+
+    <script>
+        // Check if the browser supports the Web Speech API
+        var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+            alert("Your browser does not support the Web Speech API. Please use Chrome or another supported browser.");
+        } else {
+            var recognition = new SpeechRecognition();
+            recognition.continuous = true;    // Keep processing speech continuously
+            recognition.interimResults = true;  // Show interim results
+
+            var transcriptElem = document.getElementById('transcript');
+            var startButton = document.getElementById('start');
+            var stopButton = document.getElementById('stop');
+
+            recognition.onresult = function(event) {
+                var transcript = "";
+                for (var i = event.resultIndex; i < event.results.length; ++i) {
+                    transcript += event.results[i][0].transcript;
+                }
+                transcriptElem.textContent = transcript;
+            };
+
+            recognition.onerror = function(event) {
+                console.error("Speech recognition error: ", event.error);
+            };
+
+            startButton.addEventListener('click', function() {
+                recognition.start();
+                startButton.disabled = true;
+                stopButton.disabled = false;
+            });
+
+            stopButton.addEventListener('click', function() {
+                recognition.stop();
+                startButton.disabled = false;
+                stopButton.disabled = true;
+            });
+        }
+    </script>
+</body>
+</html>

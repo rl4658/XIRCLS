@@ -18,9 +18,10 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from sentiment.api_views import SentimentAnalysisAPIView
+from sentiment.views import voice_recognition_view  # Import the new voice recognition view
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # API endpoint for sentiment analysis
     path('api/sentiment/', SentimentAnalysisAPIView.as_view(), name='api_sentiment'),
+    path('voice/', voice_recognition_view, name='voice_recognition'),
 ]
