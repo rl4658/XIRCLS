@@ -1,0 +1,27 @@
+<!-- outlook_integration/templates/outlook_integration/dashboard.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Outlook Dashboard</title>
+</head>
+<body>
+    <h1>Outlook Meeting Details</h1>
+    <p><a href="{% url 'outlook_login' %}">Re-authenticate with Outlook</a></p>
+    <ul>
+        {% for event in events %}
+        <li>
+            <strong>{{ event.subject }}</strong><br>
+            Start: {{ event.start }}<br>
+            End: {{ event.end }}<br>
+            {% if event.online_meeting_url %}
+            Meeting Link: <a href="{{ event.online_meeting_url }}">{{ event.online_meeting_url }}</a>
+            {% endif %}
+        </li>
+        {% empty %}
+        <li>No meetings found.</li>
+        {% endfor %}
+    </ul>
+</body>
+</html>

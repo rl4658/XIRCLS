@@ -37,9 +37,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'rest_framework',     # Add DRF
-    'sentiment',          # My sentiment analysis app
+    'rest_framework',     # DRF
+    'sentiment',          # Your sentiment analysis app
+    'outlook_integration' # [NEW] Outlook API integration app
 ]
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
