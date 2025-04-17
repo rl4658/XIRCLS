@@ -1,27 +1,59 @@
-<!-- outlook_integration/templates/outlook_integration/dashboard.html -->
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>Outlook Dashboard</title>
+    <style>
+      body { font-family: Arial, sans-serif; padding: 20px; }
+      h1 { margin-bottom: 1rem; }
+      ul { list-style-type: none; padding-left: 0; }
+      li.event { margin-bottom: 1.5rem; }
+      .attachments { margin-top: 0.5rem; padding-left: 1rem; }
+      .no-attachments { color: #888; }
+    </style>
 </head>
 <body>
-    <h1>Outlook Meeting Details</h1>
+    <h1>Outlook Meeting Details & Recordings</h1>
     <p><a href="{% url 'outlook_login' %}">Re-authenticate with Outlook</a></p>
-    <ul>
-        {% for event in events %}
-        <li>
-            <strong>{{ event.subject }}</strong><br>
-            Start: {{ event.start }}<br>
-            End: {{ event.end }}<br>
-            {% if event.online_meeting_url %}
-            Meeting Link: <a href="{{ event.online_meeting_url }}">{{ event.online_meeting_url }}</a>
-            {% endif %}
+
+    {% if events %}
+      <ul>
+      {% for ev in events %}
+        <li class="event">
+          <strong>{{ ev.subject }}</strong><br>
+          <em>Start:</em> {{ ev.start }}<br>
+          <em>End:</em> {{ ev.end }}<br>
+          {% if ev.online_meeting_url %}
+            <em>Online Link:</em>
+            <a href="{{ ev.online_meeting_url }}" target="_blank">
+              {{ ev.online_meeting_url }}
+            </a><br>
+          {% endif %}
+
+          {% if ev.attachments %}
+            <div class="attachments">
+              <strong>Attachments / Recordings:</strong>
+              <ul>
+                {% for att in ev.attachments %}
+                  <li>
+                    {{ att.name }}
+                    {% if att.content_url %}
+                      — <a href="{{ att.content_url }}" target="_blank">Download</a>
+                    {% elif att.size %}
+                      — {{ att.size }} bytes
+                    {% endif %}
+                  </li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% else %}
+            <div class="no-attachments">No recordings or attachments.</div>
+          {% endif %}
         </li>
-        {% empty %}
-        <li>No meetings found.</li>
-        {% endfor %}
-    </ul>
+      {% endfor %}
+      </ul>
+    {% else %}
+      <p>No meetings found.</p>
+    {% endif %}
 </body>
 </html>
