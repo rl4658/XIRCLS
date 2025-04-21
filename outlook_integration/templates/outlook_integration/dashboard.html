@@ -1,59 +1,47 @@
+{% load tz %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Outlook Dashboard</title>
-    <style>
-      body { font-family: Arial, sans-serif; padding: 20px; }
-      h1 { margin-bottom: 1rem; }
-      ul { list-style-type: none; padding-left: 0; }
-      li.event { margin-bottom: 1.5rem; }
-      .attachments { margin-top: 0.5rem; padding-left: 1rem; }
-      .no-attachments { color: #888; }
-    </style>
+  <meta charset="UTF-8">
+  <title>Outlook Dashboard</title>
+  <style>
+    body { font-family: Arial,sans-serif; padding:20px; }
+    a.button { display:inline-block; margin-bottom:1rem;
+               padding:0.5rem 1rem; background:#0078d4; color:#fff;
+               text-decoration:none; border-radius:4px; }
+  </style>
 </head>
 <body>
-    <h1>Outlook Meeting Details & Recordings</h1>
-    <p><a href="{% url 'outlook_login' %}">Re-authenticate with Outlook</a></p>
+  <h1>Outlook Meeting Details &amp; Recordings</h1>
+  <a class="button" href="{% url 'outlook_logout' %}">Logout</a>
 
-    {% if events %}
-      <ul>
+  {% if events %}
+    <h2>Upcoming Meetings</h2>
+    <ul>
       {% for ev in events %}
-        <li class="event">
+        <li>
           <strong>{{ ev.subject }}</strong><br>
-          <em>Start:</em> {{ ev.start }}<br>
-          <em>End:</em> {{ ev.end }}<br>
+          Start: {{ ev.start|localtime|date:"F j, Y, P" }}<br>
+          End:   {{ ev.end  |localtime|date:"F j, Y, P" }}
           {% if ev.online_meeting_url %}
-            <em>Online Link:</em>
-            <a href="{{ ev.online_meeting_url }}" target="_blank">
-              {{ ev.online_meeting_url }}
-            </a><br>
-          {% endif %}
-
-          {% if ev.attachments %}
-            <div class="attachments">
-              <strong>Attachments / Recordings:</strong>
-              <ul>
-                {% for att in ev.attachments %}
-                  <li>
-                    {{ att.name }}
-                    {% if att.content_url %}
-                      — <a href="{{ att.content_url }}" target="_blank">Download</a>
-                    {% elif att.size %}
-                      — {{ att.size }} bytes
-                    {% endif %}
-                  </li>
-                {% endfor %}
-              </ul>
-            </div>
-          {% else %}
-            <div class="no-attachments">No recordings or attachments.</div>
+            <br><a href="{{ ev.online_meeting_url }}" target="_blank">Join Online</a>
           {% endif %}
         </li>
       {% endfor %}
-      </ul>
-    {% else %}
-      <p>No meetings found.</p>
-    {% endif %}
+    </ul>
+  {% else %}
+    <p>No meetings found.</p>
+  {% endif %}
+
+  <h2>OneDrive Recordings</h2>
+  {% if recordings %}
+    <ul>
+      {% for rec in recordings %}
+        <li><a href="{{ rec.web_url }}" target="_blank">{{ rec.name }}</a></li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No recordings found.</p>
+  {% endif %}
 </body>
 </html>

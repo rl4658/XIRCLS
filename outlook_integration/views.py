@@ -6,13 +6,18 @@ from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv, find_dotenv
 from django.shortcuts import render, redirect
 from O365 import Account, FileSystemTokenBackend
+from requests.exceptions import HTTPError
 
 load_dotenv(find_dotenv())
 
-CLIENT_ID = os.environ.get('O365_CLIENT_ID')
+CLIENT_ID     = os.environ.get('O365_CLIENT_ID')
 CLIENT_SECRET = os.environ.get('O365_CLIENT_SECRET')
-SCOPES = ['https://graph.microsoft.com/Calendars.Read']
-REDIRECT_URI = 'http://localhost:8000/outlook/callback/'  # must match your Azure app registration
+# Only Graph API scopes; omit reserved scopes (openid, profile, offline_access)
+SCOPES        = [
+    'https://graph.microsoft.com/Calendars.Read',
+    'https://graph.microsoft.com/Files.Read.All',
+]
+REDIRECT_URI  = 'http://localhost:8000/outlook/callback/'  # must exactly match your Azure app registration
 
 def get_account():
     creds = (CLIENT_ID, CLIENT_SECRET)
@@ -26,6 +31,13 @@ def get_account():
         token_backend=token_backend,
         auth_flow_type='authorization'
     )
+
+def outlook_index(request):
+    """Home page: if authenticated, redirect to dashboard; else show login"""
+    account = get_account()
+    if account.is_authenticated:
+        return redirect('outlook_dashboard')
+    return render(request, 'outlook_integration/index.html')
 
 def outlook_login(request):
     account = get_account()
@@ -57,38 +69,55 @@ def outlook_dashboard(request):
     if not account.is_authenticated:
         return redirect('outlook_login')
 
+    # 1) Fetch calendar events for the next 30 days
     schedule = account.schedule()
     calendar = schedule.get_default_calendar()
 
-    # define a window from now until 30 days out
-    now = datetime.now(timezone.utc)
+    now    = datetime.now(timezone.utc)
     future = now + timedelta(days=30)
-
-    # build a query: start >= now AND end <= future
     q = calendar.new_query('start').greater_equal(now) \
-                              .chain('and').on_attribute('end').less_equal(future)
+             .chain('and').on_attribute('end').less_equal(future)
+    events_raw = calendar.get_events(query=q, include_recurring=True)
 
-    # fetch events in that window, including recurring
-    events = calendar.get_events(query=q, include_recurring=True)
-
-    enriched = []
-    for ev in events:
-        evd = {
+    events = []
+    for ev in events_raw:
+        events.append({
             'subject': ev.subject,
-            'start': ev.start,
-            'end': ev.end,
+            'start':   ev.start,
+            'end':     ev.end,
             'online_meeting_url': ev.online_meeting_url,
-            'attachments': []
-        }
-        try:
-            for att in ev.attachments:
-                evd['attachments'].append({
-                    'name': att.name,
+            'attachments': [
+                {
+                    'name':        att.name,
                     'content_url': getattr(att, 'content_url', None),
-                    'size': getattr(att, 'size', None),
-                })
-        except Exception:
-            pass
-        enriched.append(evd)
+                    'size':        getattr(att, 'size', None),
+                }
+                for att in getattr(ev, 'attachments', [])
+            ]
+        })
 
-    return render(request, 'outlook_integration/dashboard.html', {'events': enriched})
+    # 2) Try fetching OneDrive "Recordings" folder by name
+    recordings = []
+    try:
+        storage = account.storage()
+        drive = storage.get_default_drive()
+        root_folder = drive.get_root_folder()
+        for item in root_folder.get_items():
+            if item.is_folder and item.name.lower() == 'recordings':
+                for rec in item.get_items():
+                    recordings.append({'name': rec.name, 'web_url': rec.web_url})
+                break
+    except HTTPError:
+        recordings = []
+
+    return render(request, 'outlook_integration/dashboard.html', {
+        'events':     events,
+        'recordings': recordings,
+    })
+
+def outlook_logout(request):
+    """Log out by deleting stored token and clearing session"""
+    tb = FileSystemTokenBackend(token_path='.', token_filename='o365_token.txt')
+    tb.delete_token()
+    request.session.flush()
+    return redirect('outlook_index')
