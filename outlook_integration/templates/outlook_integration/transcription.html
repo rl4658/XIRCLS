@@ -1,19 +1,30 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <title>Transcription: {{ recording_name }}</title>
-  <style>
-    body { font-family: Arial,sans-serif; padding:20px; }
-    pre { background:#f8f9fa; padding:1rem; border-radius:4px; }
-  </style>
+    <meta charset="UTF-8">
+    <title>Transcription: {{ recording_name }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        pre {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 4px;
+        }
+    </style>
 </head>
+
 <body>
-  <h1>Transcription for {{ recording_name }}</h1>
-  <p><a href="{% url 'outlook_dashboard' %}">← Back to Dashboard</a></p>
-  {% for seg in segments %}
+    <h1>Transcription for {{ recording_name }}</h1>
+    <p><a href="{% url 'outlook_dashboard' %}">← Back to Dashboard</a></p>
+    {% for seg in segments %}
     <h3>{{ seg.speaker }} ({{ seg.start|floatformat:1 }}s–{{ seg.end|floatformat:1 }}s)</h3>
     <pre>{{ seg.text }}</pre>
-  {% endfor %}
+    {% endfor %}
 </body>
+
 </html>

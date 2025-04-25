@@ -1,55 +1,65 @@
 {% load tz %}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <title>Outlook Dashboard</title>
   <style>
-    body { font-family: Arial,sans-serif; padding:20px; }
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+
     a.button {
-      display:inline-block; margin:0 0.5rem 0.5rem 0;
-      padding:0.3rem 0.6rem; background:#28a745; color:#fff;
-      text-decoration:none; border-radius:4px;
+      display: inline-block;
+      margin: 0 0.5rem 0.5rem 0;
+      padding: 0.3rem 0.6rem;
+      background: #28a745;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 4px;
     }
   </style>
 </head>
+
 <body>
   <h1>Outlook Meetings &amp; Recordings</h1>
   <a class="button" href="{% url 'outlook_logout' %}">Logout</a>
 
   {% if events %}
-    <h2>Upcoming Meetings</h2>
-    <ul>
-      {% for ev in events %}
-        <li>
-          <strong>{{ ev.subject }}</strong><br>
-          Start: {{ ev.start|localtime|date:"F j, Y, P" }}<br>
-          End:   {{ ev.end  |localtime|date:"F j, Y, P" }}
-          {% if ev.online_meeting_url %}
-            <br><a href="{{ ev.online_meeting_url }}" target="_blank">Join Online</a>
-          {% endif %}
-        </li>
-      {% endfor %}
-    </ul>
+  <h2>Upcoming Meetings</h2>
+  <ul>
+    {% for ev in events %}
+    <li>
+      <strong>{{ ev.subject }}</strong><br>
+      Start: {{ ev.start|localtime|date:"F j, Y, P" }}<br>
+      End: {{ ev.end |localtime|date:"F j, Y, P" }}
+      {% if ev.online_meeting_url %}
+      <br><a href="{{ ev.online_meeting_url }}" target="_blank">Join Online</a>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
   {% else %}
-    <p>No meetings found.</p>
+  <p>No meetings found.</p>
   {% endif %}
 
   <h2>OneDrive Recordings</h2>
   {% if recordings %}
-    <ul>
-      {% for rec in recordings %}
-        <li>
-          <a href="{{ rec.web_url }}" target="_blank">{{ rec.name }}</a>
-          <a class="button"
-             href="{% url 'transcribe_recording' %}?item_id={{ rec.id }}">
-            Transcribe
-          </a>
-        </li>
-      {% endfor %}
-    </ul>
+  <ul>
+    {% for rec in recordings %}
+    <li>
+      <a href="{{ rec.web_url }}" target="_blank">{{ rec.name }}</a>
+      <a class="button" href="{% url 'transcribe_recording' %}?item_id={{ rec.item_id }}">
+        Transcribe
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
   {% else %}
-    <p>No recordings found.</p>
+  <p>No recordings found.</p>
   {% endif %}
 </body>
+
 </html>

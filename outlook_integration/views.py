@@ -10,7 +10,9 @@ from O365 import Account, FileSystemTokenBackend
 from requests.exceptions import HTTPError
 
 # Import your transcription function here; adjust the path as needed
-from transcription.transcribe_with_speaker_labels_hf import transcribe_with_speaker_labels
+from transcription.transcribe_with_speaker_labels_hf import (
+    transcribe_with_speaker_labels,
+)
 
 load_dotenv(find_dotenv())
 
@@ -171,7 +173,7 @@ def transcribe_recording(request):
     # 3) Run your Hugging Face + diarization transcription
     segments = transcribe_with_speaker_labels(
         mp3_path=file_path,
-        model_size="base",
+        asr_model="openai/whisper-base",
         diarization_model="pyannote/speaker-diarization",
     )
 
