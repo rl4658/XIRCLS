@@ -171,11 +171,7 @@ def transcribe_recording(request):
     file_path = os.path.join(tmp_dir, filename)
 
     # 3) Run your Hugging Face + diarization transcription
-    segments = transcribe_with_speaker_labels(
-        mp3_path=file_path,
-        asr_model="openai/whisper-base",
-        diarization_model="pyannote/speaker-diarization",
-    )
+    segments = transcribe_with_speaker_labels(mp3_path=file_path)
 
     # 4) Render the results
     return render(

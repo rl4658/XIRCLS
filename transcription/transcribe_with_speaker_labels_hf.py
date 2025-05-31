@@ -1,110 +1,174 @@
 # transcription/transcribe_with_speaker_labels_hf.py
 
-"""
-This module provides a function to transcribe an MP3 file with speaker diarization.
-The MP3 file is expected to be downloaded locally by the Django view before calling this function.
-"""
-
-import warnings
-# Suppress non-critical warnings
-warnings.filterwarnings('ignore')
-
-# Try copy strategy for SpeechBrain cache on Windows
-try:
-    from speechbrain.utils.fetching import set_local_strategy
-    set_local_strategy("copy")
-except ImportError:
-    pass
-
 import os
 import tempfile
-from pydub import AudioSegment
+import warnings
+
 from decouple import config
-from dotenv import load_dotenv, find_dotenv
-
-# Load environment variables from .env
-load_dotenv(find_dotenv())
-
+from dotenv import load_dotenv
+from pydub import AudioSegment
 from pyannote.audio import Pipeline as PyannotePipeline
-from transformers import pipeline
+from transformers import pipeline as hf_pipeline
+import torch  # needed to check for GPU availability
 
-# Hugging Face token for gated models
-HF_TOKEN = config('HUGGINGFACE_TOKEN')
+# ─────────────────────────────────────────────────────────────────────────────
+# SUPPRESS NON-CRITICAL WARNINGS
+# ─────────────────────────────────────────────────────────────────────────────
+warnings.filterwarnings("ignore")
 
+# ─────────────────────────────────────────────────────────────────────────────
+# LOAD ENVIRONMENT VARIABLES (for HUGGINGFACE_TOKEN if needed)
+# ─────────────────────────────────────────────────────────────────────────────
+load_dotenv()
 
-def transcribe_with_speaker_labels(
-    mp3_path: str,
-    asr_model: str = "openai/whisper-base",
-    diarization_model: str = "pyannote/speaker-diarization",
-    chunk_length_s: float = 30.0,
-) -> list[dict]:
+# ─────────────────────────────────────────────────────────────────────────────
+# CONFIGURATION: CHOOSE MODEL NAMES & CHUNK DURATION
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Whisper variants (in increasing size/accuracy):
+#   - "openai/whisper-tiny.en"   (fastest on English audio)
+#   - "openai/whisper-small"     (balanced speed + accuracy)
+#   - "openai/whisper-base"      (more accurate, slower)
+#
+# Default to "openai/whisper-small". Swap as needed.
+ASR_MODEL = "openai/whisper-small"
+
+# How many seconds per internal Whisper chunk
+CHUNK_LENGTH_SECONDS = 60
+
+# Pyannote speaker‐diarization pipeline name
+DIARIZATION_MODEL = "pyannote/speaker-diarization"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# AUTH TOKEN (for gated HF + Pyannote models)
+# ─────────────────────────────────────────────────────────────────────────────
+HF_TOKEN = config("HUGGINGFACE_TOKEN", default=None)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DETECT GPU AVAILABILITY AND SET DEVICE INDEX
+# ─────────────────────────────────────────────────────────────────────────────
+# If a CUDA‐capable GPU is present, device_index = 0; otherwise -1 (CPU).
+DEVICE_INDEX = 0 if torch.cuda.is_available() else -1
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PRELOAD HEAVY MODELS AT MODULE LOAD
+# ─────────────────────────────────────────────────────────────────────────────
+
+# 1) Pyannote diarization pipeline
+diarizer = PyannotePipeline.from_pretrained(
+    DIARIZATION_MODEL,
+    use_auth_token=HF_TOKEN
+)
+
+# 2) Whisper ASR pipeline (chunk_length_s controls how we internally batch)
+asr = hf_pipeline(
+    "automatic-speech-recognition",
+    model=ASR_MODEL,
+    chunk_length_s=CHUNK_LENGTH_SECONDS,
+    device=DEVICE_INDEX,      # 0 if GPU is available, else -1 (CPU)
+    trust_remote_code=True
+)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MAIN FUNCTION: TRANSCRIBE WITH SPEAKER LABELS
+# ─────────────────────────────────────────────────────────────────────────────
+
+def transcribe_with_speaker_labels(mp3_path: str) -> list[dict]:
     """
-    Transcribe an MP3 via speaker diarization + ASR.
-    The mp3_path file is downloaded by the Django view.
-
-    Returns:
-        List of {speaker, start, end, text} dicts.
+    1) Convert MP3 → WAV (mono, 16 kHz).
+    2) Run Pyannote diarization on the full WAV to get speaker segments.
+    3) For each speaker segment:
+         a) Slice out that time interval from the full audio.
+         b) Export it to a temp WAV file.
+         c) Run Whisper (chunked) on that slice → get text.
+         d) Append { "speaker", "start", "end", "text" } if text is non-empty.
+    4) Clean up temp files.
+    5) Return a list of speaker‐labeled segments.
     """
-    print(f"[Transcriber] Starting transcription for {mp3_path}")
 
-    # 1) Convert MP3 → WAV, mono 16kHz
-    print("[Transcriber] Converting MP3 to WAV...")
-    tmp_wav = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
-    audio = AudioSegment.from_file(mp3_path, format="mp3")
-    audio = audio.set_frame_rate(16000).set_channels(1)
-    audio.export(tmp_wav.name, format="wav")
-    tmp_wav.close()  # release file handle so others can access
+    # ─────────────────────────────────────────────────────────────────────────
+    # 1) CONVERT MP3 → WAV (mono, 16 kHz)
+    # ─────────────────────────────────────────────────────────────────────────
+    tmp_wav_handle = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+    try:
+        audio = AudioSegment.from_file(mp3_path, format="mp3")
+        audio = audio.set_frame_rate(16000).set_channels(1)
+        audio.export(tmp_wav_handle.name, format="wav")
+    except Exception as e:
+        tmp_wav_handle.close()
+        os.remove(tmp_wav_handle.name)
+        raise RuntimeError(f"[Transcription] Failed converting MP3 to WAV: {e}")
+    finally:
+        tmp_wav_handle.close()
 
-    # 2) Speaker diarization
-    print("[Transcriber] Running speaker diarization...")
-    diarizer = PyannotePipeline.from_pretrained(
-        diarization_model,
-        use_auth_token=HF_TOKEN
-    )
-    diarization = diarizer(tmp_wav.name)
+    wav_path = tmp_wav_handle.name
 
-    # 3) ASR pipeline (Whisper)
-    print("[Transcriber] Running ASR (Whisper) transcription...")
-    asr = pipeline(
-        "automatic-speech-recognition",
-        model=asr_model,
-        chunk_length_s=chunk_length_s,
-        return_timestamps="word",
-        device=-1,
-        trust_remote_code=True
-    )
-    asr_result = asr(tmp_wav.name)
-    chunks = asr_result.get("chunks", [])
+    # ─────────────────────────────────────────────────────────────────────────
+    # 2) RUN PYANNOTE DIARIZATION ON THE FULL WAV
+    # ─────────────────────────────────────────────────────────────────────────
+    diarization = diarizer(wav_path)
 
-    # 4) Align words to speaker segments
-    print("[Transcriber] Aligning words to speaker segments...")
+    # ─────────────────────────────────────────────────────────────────────────
+    # 3) LOAD FULL WAV INTO PYDUB FOR SLICING
+    # ─────────────────────────────────────────────────────────────────────────
+    try:
+        full_audio = AudioSegment.from_wav(wav_path)
+    except Exception as e:
+        os.remove(wav_path)
+        raise RuntimeError(f"[Transcription] Failed loading WAV into pydub: {e}")
+
     segments = []
-    for segment, _, speaker in diarization.itertracks(yield_label=True):
-        st, et = segment.start, segment.end
-        words = []
-        for w in chunks:
-            ts = w.get("timestamp")
-            if (
-                isinstance(ts, (list, tuple)) and
-                ts[0] is not None and ts[1] is not None and
-                ts[0] >= st and ts[1] <= et
-            ):
-                words.append(w.get("text", ""))
-        text = "".join(words).strip()
+
+    # 3a) Iterate over each speaker segment
+    for segment, _, speaker_label in diarization.itertracks(yield_label=True):
+        st, et = segment.start, segment.end  # floats in seconds
+        start_ms = int(st * 1000)
+        end_ms   = int(et * 1000)
+
+        # 3b) Slice that portion out of the full audio
+        slice_audio = full_audio[start_ms:end_ms]
+
+        # 3c) Export slice to its own temp WAV
+        tmp_slice_handle = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+        try:
+            slice_audio.export(tmp_slice_handle.name, format="wav")
+        except Exception as e:
+            tmp_slice_handle.close()
+            os.remove(tmp_slice_handle.name)
+            continue  # skip this segment on failure
+        finally:
+            tmp_slice_handle.close()
+
+        slice_path = tmp_slice_handle.name
+
+        # 3d) Run Whisper (chunked) on that slice
+        try:
+            result = asr(slice_path)
+            text = result.get("text", "").strip()
+        except Exception:
+            text = ""
+
+        # 3e) Record if non-empty
         if text:
             segments.append({
-                "speaker": speaker,
+                "speaker": speaker_label,
                 "start": st,
                 "end": et,
                 "text": text
             })
 
-    # Cleanup
-    print(f"[Transcriber] Cleaning up temp file {tmp_wav.name}")
-    try:
-        os.remove(tmp_wav.name)
-    except PermissionError:
-        print(f"[Transcriber] Warning: could not delete temp file {tmp_wav.name}")
+        # 3f) Clean up the slice WAV
+        try:
+            os.remove(slice_path)
+        except Exception:
+            pass
 
-    print("[Transcriber] Transcription complete.")
+    # ─────────────────────────────────────────────────────────────────────────
+    # 4) CLEAN UP MAIN WAV FILE
+    # ─────────────────────────────────────────────────────────────────────────
+    try:
+        os.remove(wav_path)
+    except Exception:
+        pass
+
     return segments
