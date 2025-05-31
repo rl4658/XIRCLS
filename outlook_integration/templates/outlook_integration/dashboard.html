@@ -1,65 +1,159 @@
 {% load tz %}
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <title>Outlook Dashboard</title>
+  <!-- Google Font -->
+  <link href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap" rel="stylesheet">
   <style>
     body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
+      font-family: 'Roboto', sans-serif;
+      background: #f0f2f5;
+      color: #333;
+      margin: 0;
+      padding: 0;
     }
-
-    a.button {
-      display: inline-block;
-      margin: 0 0.5rem 0.5rem 0;
-      padding: 0.3rem 0.6rem;
-      background: #28a745;
+    .container {
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #fff;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      font-weight: 500;
+      color: #2c3e50;
+    }
+    .logout-btn {
+      text-align: right;
+      margin-bottom: 10px;
+    }
+    .logout-btn a {
+      background: #e74c3c;
       color: #fff;
+      padding: 10px 16px;
       text-decoration: none;
       border-radius: 4px;
+      font-size: 0.9rem;
+      transition: background 0.3s;
+    }
+    .logout-btn a:hover {
+      background: #c0392b;
+    }
+    section {
+      margin-top: 30px;
+    }
+    .section-title {
+      font-size: 1.2rem;
+      margin-bottom: 10px;
+      border-bottom: 2px solid #3498db;
+      padding-bottom: 5px;
+      color: #3498db;
+      font-weight: 500;
+    }
+    .item-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .item {
+      padding: 15px;
+      background: #fafafa;
+      border: 1px solid #e1e4e8;
+      border-radius: 4px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .item-info {
+      max-width: 70%;
+    }
+    .item-info strong {
+      display: block;
+      font-size: 1rem;
+      margin-bottom: 6px;
+      color: #2c3e50;
+    }
+    .item-info .time {
+      font-size: 0.9rem;
+      color: #555;
+      line-height: 1.4;
+    }
+    .item-actions a {
+      background: #3498db;
+      color: #fff;
+      padding: 8px 14px;
+      text-decoration: none;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      transition: background 0.3s;
+      white-space: nowrap;
+    }
+    .item-actions a:hover {
+      background: #2980b9;
+    }
+    .no-items {
+      font-style: italic;
+      color: #777;
+      margin-top: 10px;
     }
   </style>
 </head>
-
 <body>
-  <h1>Outlook Meetings &amp; Recordings</h1>
-  <a class="button" href="{% url 'outlook_logout' %}">Logout</a>
-
-  {% if events %}
-  <h2>Upcoming Meetings</h2>
-  <ul>
-    {% for ev in events %}
-    <li>
-      <strong>{{ ev.subject }}</strong><br>
-      Start: {{ ev.start|localtime|date:"F j, Y, P" }}<br>
-      End: {{ ev.end |localtime|date:"F j, Y, P" }}
-      {% if ev.online_meeting_url %}
-      <br><a href="{{ ev.online_meeting_url }}" target="_blank">Join Online</a>
+  <div class="container">
+    <div class="logout-btn">
+      <a href="{% url 'outlook_logout' %}">Logout</a>
+    </div>
+    <h1>Outlook Meetings &amp; Recordings</h1>
+    <section>
+      <div class="section-title">Upcoming Meetings</div>
+      {% if events %}
+      <ul class="item-list">
+        {% for ev in events %}
+        <li class="item">
+          <div class="item-info">
+            <strong>{{ ev.subject }}</strong>
+            <div class="time">
+              Start: {{ ev.start|localtime|date:"F j, Y, P" }}<br>
+              End: {{ ev.end|localtime|date:"F j, Y, P" }}
+            </div>
+          </div>
+          <div class="item-actions">
+            {% if ev.online_meeting_url %}
+            <a href="{{ ev.online_meeting_url }}" target="_blank">Join</a>
+            {% endif %}
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="no-items">No meetings found.</p>
       {% endif %}
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <p>No meetings found.</p>
-  {% endif %}
-
-  <h2>OneDrive Recordings</h2>
-  {% if recordings %}
-  <ul>
-    {% for rec in recordings %}
-    <li>
-      <a href="{{ rec.web_url }}" target="_blank">{{ rec.name }}</a>
-      <a class="button" href="{% url 'transcribe_recording' %}?item_id={{ rec.item_id }}">
-        Transcribe
-      </a>
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <p>No recordings found.</p>
-  {% endif %}
+    </section>
+    <section>
+      <div class="section-title">OneDrive Recordings</div>
+      {% if recordings %}
+      <ul class="item-list">
+        {% for rec in recordings %}
+        <li class="item">
+          <div class="item-info">
+            <a href="{{ rec.web_url }}" target="_blank" style="color: #2c3e50; font-weight: 500;">{{ rec.name }}</a>
+          </div>
+          <div class="item-actions">
+            <a href="{% url 'transcribe_recording' %}?item_id={{ rec.item_id }}">Transcribe</a>
+          </div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p class="no-items">No recordings found.</p>
+      {% endif %}
+    </section>
+  </div>
 </body>
-
 </html>
