@@ -14,6 +14,9 @@ from transcription.transcribe_with_speaker_labels_hf import (
     transcribe_with_speaker_labels,
 )
 
+# Import our new task extractor
+from .task_extraction import extract_tasks_rule_based
+
 load_dotenv(find_dotenv())
 
 CLIENT_ID = os.environ.get("O365_CLIENT_ID")
@@ -142,8 +145,8 @@ def outlook_dashboard(request):
 
 def transcribe_recording(request):
     """
-    Download the specified recording to a temp file, then run
-    speaker-aware transcription on it.
+    Download the specified recording to a temp file, run speaker-aware transcription,
+    then extract action items from the joined transcript.
     """
     account = get_account()
     if not account.is_authenticated:
@@ -153,12 +156,11 @@ def transcribe_recording(request):
     if not item_id:
         return redirect("outlook_dashboard")
 
-    # 1) Retrieve the file from OneDrive
+    # Step 1) Retrieve and download the file from OneDrive
     storage = account.storage()
     drive = storage.get_default_drive()
     item = drive.get_item(item_id)
 
-    # 2) Download it to a temp directory
     tmp_dir = tempfile.mkdtemp()
     filename = item.name
     success = item.download(to_path=tmp_dir, name=filename)
@@ -168,16 +170,33 @@ def transcribe_recording(request):
             "outlook_integration/transcription_error.html",
             {"message": "Could not download recording."},
         )
+
     file_path = os.path.join(tmp_dir, filename)
 
-    # 3) Run your Hugging Face + diarization transcription
+    # Step 2) Run Hugging Face + PyAnnote transcription
     segments = transcribe_with_speaker_labels(mp3_path=file_path)
 
-    # 4) Render the results
+    # Step 3) Combine all segments into one big text blob, e.g. "SpeakerA: text…"
+    full_text_lines = []
+    for seg in segments:
+        speaker = seg.get("speaker", "Speaker")
+        text = seg.get("text", "").strip()
+        if text:
+            full_text_lines.append(f"{speaker}: {text}")
+    full_text = "\n".join(full_text_lines)
+
+    # Step 4) Use our spaCy-based extractor to get actionable tasks
+    actionable_tasks = extract_tasks_rule_based(full_text)
+
+    # Step 5) Render results, passing both segments and actionable_tasks
     return render(
         request,
         "outlook_integration/transcription.html",
-        {"segments": segments, "recording_name": filename},
+        {
+            "segments": segments,
+            "recording_name": filename,
+            "actionable_tasks": actionable_tasks,
+        },
     )
 
 

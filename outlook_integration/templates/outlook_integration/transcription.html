@@ -2,10 +2,10 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
     <title>Transcription: {{ recording_name }}</title>
     <!-- Google Font: Roboto -->
-    <link href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css?family=Roboto:400,500,700&display=swap" rel="stylesheet" />
     <style>
         /* Base styles */
         body {
@@ -15,10 +15,12 @@
             padding: 0;
             color: #333;
         }
+
         a {
             text-decoration: none;
             color: inherit;
         }
+
         /* Container */
         .container {
             max-width: 800px;
@@ -28,6 +30,7 @@
             border-radius: 8px;
             box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
         }
+
         /* Header */
         h1 {
             font-size: 1.8rem;
@@ -35,6 +38,7 @@
             margin-bottom: 10px;
             color: #2c3e50;
         }
+
         /* Back button */
         .back-button {
             display: inline-block;
@@ -46,9 +50,11 @@
             font-size: 0.9rem;
             transition: background 0.3s ease;
         }
+
         .back-button:hover {
             background: #2980b9;
         }
+
         /* Segment list */
         .segment {
             margin-bottom: 24px;
@@ -57,21 +63,25 @@
             border-left: 4px solid #3498db;
             border-radius: 4px;
         }
+
         .segment-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 8px;
         }
+
         .segment-header .speaker {
             font-weight: 500;
             font-size: 1rem;
             color: #2c3e50;
         }
+
         .segment-header .timestamp {
             font-size: 0.85rem;
             color: #555;
         }
+
         .segment-text {
             background: #ffffff;
             padding: 12px;
@@ -79,14 +89,50 @@
             border: 1px solid #e1e4e8;
             font-size: 0.95rem;
             line-height: 1.5;
-            white-space: pre-wrap; /* preserve line breaks */
+            white-space: pre-wrap;
             color: #2c3e50;
         }
-        /* No segments message */
+
         .no-segments {
             font-style: italic;
             color: #777;
             margin-top: 20px;
+        }
+
+        /* Action Items section */
+        .action-items {
+            margin-top: 40px;
+            padding: 20px;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 1px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .action-items h2 {
+            font-size: 1.5rem;
+            font-weight: 500;
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 6px;
+            margin-bottom: 16px;
+        }
+
+        .action-items ul {
+            list-style: disc inside;
+            padding-left: 0;
+            margin: 0;
+        }
+
+        .action-items li {
+            margin-bottom: 10px;
+            font-size: 0.95rem;
+            color: #333;
+        }
+
+        .no-tasks {
+            font-style: italic;
+            color: #777;
+            margin-top: 10px;
         }
     </style>
 </head>
@@ -111,6 +157,20 @@
         {% else %}
             <p class="no-segments">No transcription segments available.</p>
         {% endif %}
+
+        <!-- ────────── Actionable Tasks Section ────────── -->
+        <div class="action-items">
+            <h2>Extracted Action Items</h2>
+            {% if actionable_tasks %}
+                <ul>
+                    {% for task in actionable_tasks %}
+                        <li>{{ task }}</li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="no-tasks">No actionable tasks identified.</p>
+            {% endif %}
+        </div>
     </div>
 </body>
 
